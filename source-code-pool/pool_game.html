@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+
+<html lang="en-US">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>pool_game</title>
+  <script src="../../jsgame0.js"></script>
+  <style type="text/css" media="screen">
+body {
+  background-color: white;
+  color: black;
+}
+.hidden {
+  display: none;
+}
+#original {
+  margin-left: 1em;
+}
+  </style>
+</head>
+
+<body>
+<section id="imageLoader" class="hidden">
+  <img class="hidden" src="images/ball_1.png" alt="ball_1">
+  <img class="hidden" src="images/ball_2.png" alt="ball_2">
+  <img class="hidden" src="images/cue_ball.png" alt="cue_ball">
+  <img class="hidden" src="images/playarea.png" alt="playarea">
+  <img class="hidden" src="images/pocket.png" alt="pocket">
+  <img class="hidden" src="images/table.png" alt="table">
+</section>
+
+<main>
+<h1>pool_game</h1>
+
+<canvas id="screen">
+The game screen appears here if your browser supports the Canvas API.
+</canvas>
+<section id="controls">
+  <button type="button" id="reset">Reset</button>
+  <button type="button" id="pause">Pause</button>
+</section>
+
+<h2>Attribution</h2>
+
+<p><a href="https://wireframe.raspberrypi.org/issues/36">Make a Side Pocket-esque pool game, pages 38-41, by Mac Bowley</a>.</p>
+
+<p>Licensed under <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/legalcode">Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported</a>.</p>
+
+<h2>Original Python code</h2>
+
+<pre id="original"><code>
+import math
+import time
+
+WIDTH = 760
+HEIGHT = 380
+
+class Ball:
+    def __init__(self, image, pos):
+        self.actor = Actor(image, center=pos, anchor=(&quot;center&quot;, &quot;center&quot;))
+        self.movement = [0, 0]
+        self.pocketed = False
+
+    def move(self):
+        self.actor.x += self.movement[0]
+        self.actor.y += self.movement[1]
+        if self.pocketed == False:
+            if self.actor.y &lt; playArea.top + 16 or self.actor.y &gt; playArea.bottom-16:
+                self.movement[1] = -self.movement[1]
+                self.actor.y = clamp(self.actor.y, playArea.top+16, playArea.bottom-16)
+            if self.actor.x &lt; playArea.left+16 or self.actor.x &gt; playArea.right-16:
+                self.movement[0] = -self.movement[0]
+                self.actor.x = clamp(self.actor.x, playArea.left+16, playArea.right-16)
+        else:
+            self.actor.x += self.movement[0]
+            self.actor.y += self.movement[1]
+        self.resistance()
+
+    def resistance(self):
+        # Slow the ball down
+        self.movement[0] *= 0.95
+        self.movement[1] *= 0.95
+
+        if abs(self.movement[0]) + abs(self.movement[1]) &lt; 0.4:
+            self.movement = [0, 0]
+
+    def collide(self, ball):
+        collision_normal = [ball.actor.x - self.actor.x, ball.actor.y - self.actor.y]
+        ball_speed = math.sqrt(collision_normal[0]**2 + collision_normal[1]**2)
+        self_speed  = math.sqrt(self.movement[0]**2 + self.movement[1]**2)
+        if self.movement[0] == 0 and self.movement[1] == 0:
+            ball.movement[0] = -ball.movement[0]
+            ball.movement[1] = -ball.movement[1]
+        elif ball_speed &gt; 0:
+            collision_normal[0] *= 1/ball_speed
+            collision_normal[1] *= 1/ball_speed
+            ball.movement[0] = collision_normal[0] * self_speed
+            ball.movement[1] = collision_normal[1] * self_speed
+
+
+def clamp(n, smallest, largest):
+    return max(smallest, min(n, largest))
+
+playArea = Actor(&quot;playarea.png&quot;, center=(WIDTH//2, HEIGHT//2))
+
+balls = []
+cue_ball = Ball(&quot;cue_ball.png&quot;, (WIDTH//2, HEIGHT//2))
+balls.append(cue_ball)
+balls.append(Ball(&quot;ball_1.png&quot;, (WIDTH//2 - 75, HEIGHT//2)))
+balls.append(Ball(&quot;ball_2.png&quot;, (WIDTH//2 - 150, HEIGHT//2)))
+
+pockets = []
+pockets.append(Actor(&quot;pocket.png&quot;, topleft=(playArea.left, playArea.top), anchor=(&quot;left&quot;, &quot;top&quot;)))
+# I create one of these actors for each pocket, they are not drawn
+pockets.append(Actor(&quot;pocket.png&quot;, bottomleft=(playArea.left, playArea.bottom), anchor=(&quot;left&quot;, &quot;bottom&quot;)))
+pockets.append(Actor(&quot;pocket.png&quot;, bottomright=(playArea.right, playArea.bottom), anchor=(&quot;right&quot;, &quot;bottom&quot;)))
+pockets.append(Actor(&quot;pocket.png&quot;, topright=(playArea.right, playArea.top), anchor=(&quot;right&quot;, &quot;top&quot;)))
+
+shot_rotation = 270.0 # Start pointing up table
+turn_speed = 1
+line = [] # To hold the points on my line
+line_gap = 1/12
+max_line_length = 400
+
+shot = False
+ball_speed = 30
+
+def update():
+    global shot_rotation, shot, line, cue_ball, balls
+
+    ## Rotate your aim
+    if keyboard[keys.LEFT] and not shot:
+        shot_rotation -= 1 * turn_speed
+    if keyboard[keys.RIGHT] and not shot:
+        shot_rotation += 1 * turn_speed
+
+
+
+    # Make the rotation wrap around
+    if shot_rotation &gt; 360:
+        shot_rotation -= 360
+    if shot_rotation &lt; 0:
+        shot_rotation += 360
+
+    # Work out the Vector that corresponds to the rotation
+    rot_radians = shot_rotation * (math.pi/180)
+
+    x = math.sin(rot_radians)
+    y = -math.cos(rot_radians)
+
+    ## Inside update
+    ## Shoot the ball with the space bar
+    if keyboard[keys.SPACE] and not shot:
+        shot = True
+        cue_ball.movement = [x*ball_speed, y*ball_speed]
+
+    if not shot:
+        current_x = cue_ball.actor.x
+        current_y = cue_ball.actor.y
+        length = 0
+        line = []
+        while length &lt; max_line_length:
+            hit = False
+            if current_y &lt; playArea.top or current_y &gt; playArea.bottom:
+                y = -y
+                hit = True
+            if current_x &lt; playArea.left or current_x &gt; playArea.right:
+                x = -x
+                hit = True
+            if hit == True:
+                line.append((current_x-(x*line_gap), current_y-(y*line_gap)))
+            length += math.sqrt(((x*line_gap)**2)+((y*line_gap)**2) )
+            current_x += x*line_gap
+            current_y += y*line_gap
+        line.append((current_x-(x*line_gap), current_y-(y*line_gap)))
+    # Shoot the ball and move all the balls on the table
+    else:
+        shot = False
+        balls_pocketed = []
+        collisions = []
+        for b in balls:
+            # Move each ball
+            b.move()
+            print(b.movement)
+            if abs(b.movement[0]) + abs(b.movement[1]) &gt; 0:
+                shot = True
+            # Check for collisions
+            for other in balls:
+                if other != b and b.actor.colliderect(other.actor):
+                    collisions.append((b, other))
+            # Did it sink in the hole?
+            in_pocket = b.actor.collidelistall(pockets)
+            if len(in_pocket) &gt; 0 and b.pocketed == False:
+                if b != cue_ball:
+                    b.movement[0] = (pockets[in_pocket[0]].x - b.actor.x) / 20
+                    b.movement[1] = (pockets[in_pocket[0]].y - b.actor.y) / 20
+                    b.pocketed = True
+                    balls_pocketed.append(b)
+                else:
+                    b.x = WIDTH//2
+                    b.y = HEIGHT//2
+        for col in collisions:
+            col[0].collide(col[1])
+        if shot == False:
+            for b in balls_pocketed:
+                balls.remove(b)
+
+
+def draw():
+    global line
+    screen.blit(&#x27;table.png&#x27;, (0, 0))
+    playArea.draw()
+    if not shot:
+        screen.draw.line(cue_ball.actor.pos, line[0], (255, 255, 255))
+        for l in range(len(line) - 1):
+            screen.draw.line(line[l], line[l+1], (255, 255, 255))
+    for ball in balls:
+        if ball.pocketed == False:
+            ball.actor.draw()
+
+</code></pre>
+</main>
+
+<script>
+WIDTH = 760;
+HEIGHT = 380;
+
+class Ball {
+  constructor(name, pos) {
+    this.actor = new Actor(name);
+    this.actor.anchor = ["center", "center"];
+    this.actor.center = pos;
+    this.movement = [0, 0];
+    this.pocketed = false;
+  }
+
+  move() {
+    this.actor.posx += this.movement[0];
+    this.actor.posy += this.movement[1];
+    if (!this.pocketed) {
+      if ((this.actor.posy < (playArea.top + 16)) || (this.actor.posy > (playArea.bottom - 16))) {
+        this.movement[1] = -this.movement[1];
+        this.actor.posy = clamp(this.actor.posy, playArea.top + 16, playArea.bottom - 16);
+      }
+      if ((this.actor.posx < (playArea.left + 16)) || (this.actor.posx > (playArea.right - 16))) {
+        this.movement[0] = -this.movement[0];
+        this.actor.posx = clamp(this.actor.posx, playArea.left + 16, playArea.right - 16);
+      }
+    }
+    else {
+      this.actor.posx += this.movement[0];
+      this.actor.posy += this.movement[1];
+    }
+    this.resistance();
+  }
+
+  resistance() {
+    // Slow the ball down
+    this.movement[0] *= 0.95;
+    this.movement[1] *= 0.95;
+
+    if ((Math.abs(this.movement[0]) + Math.abs(this.movement[1])) < 0.4) {
+      this.movement = [0, 0];
+    }
+  }
+
+  collide(ball) {
+    let collision_normal = [ball.actor.posx - this.actor.posx, ball.actor.posy - this.actor.posy],
+        ball_speed = Math.sqrt(Math.pow(collision_normal[0], 2) + Math.pow(collision_normal[1], 2)),
+        self_speed = Math.sqrt(Math.pow(this.movement[0], 2) + Math.pow(this.movement[1], 2));
+    if ((this.movement[0] === 0) && (this.movement[1] === 0)) {
+      ball.movement[0] = -ball.movement[0];
+      ball.movement[1] = -ball.movement[1];
+    }
+    else if (ball_speed > 0) {
+      collision_normal[0] *= 1 / ball_speed;
+      collision_normal[1] *= 1 / ball_speed;
+      ball.movement[0] = collision_normal[0] * self_speed;
+      ball.movement[1] = collision_normal[1] * self_speed;
+    }
+  }
+
+  /*
+   * Return a list of pockets with which this Ball collided.
+   *
+   * Implement collidelistall() here to avoid extending the API.
+   */
+  collidepockets() {
+    let result = [],
+        i = 0;
+    for (let p of pockets) {
+      if (this.actor.colliderect(p)) {
+        result.push(i);
+      }
+      i++;
+    }
+    return result;
+  }
+}
+
+function clamp(n, smallest, largest) {
+  return Math.max(smallest, Math.min(n, largest));
+}
+
+var playArea, balls, cue_ball, pockets, shot_rotation, line, shot;
+
+function reset() {
+  playArea = new Actor("playarea");
+  playArea.center = [Math.floor(WIDTH / 2), Math.floor(HEIGHT / 2)];
+
+  balls = [];
+  cue_ball = new Ball("cue_ball", [Math.floor(WIDTH / 2), Math.floor(HEIGHT / 2)]);
+  balls.push(cue_ball);
+  balls.push(new Ball("ball_1", [Math.floor(WIDTH / 2) - 75, Math.floor(HEIGHT / 2)]));
+  balls.push(new Ball("ball_2", [Math.floor(WIDTH / 2) - 150, Math.floor(HEIGHT / 2)]));
+
+  pockets = [];
+  let p = new Actor("pocket");
+  p.anchor = ["left", "top"];
+  p.topleft = [playArea.left, playArea.top];
+  pockets.push(p);
+  // I create one of these actors for each pocket, they are not drawn
+  p = new Actor("pocket");
+  p.anchor = ["left", "bottom"];
+  p.bottomleft = [playArea.left, playArea.bottom];
+  pockets.push(p);
+  p = new Actor("pocket");
+  p.anchor = ["right", "bottom"];
+  p.bottomright = [playArea.right, playArea.bottom];
+  pockets.push(p);
+  p = new Actor("pocket");
+  p.anchor = ["right", "top"];
+  p.topright = [playArea.right, playArea.top];
+  pockets.push(p);
+
+  shot_rotation = 270.0; // Start pointing up table
+  line = []; // To hold the points on my line
+  shot = false;
+}
+
+turn_speed = 1;
+line_gap = 1 / 12;
+max_line_length = 400;
+ball_speed = 30;
+
+function update() {
+  // Rotate your aim
+  if (keyboard[keys.LEFT] && (!shot)) {
+    shot_rotation -= turn_speed;
+  }
+  if (keyboard[keys.RIGHT] && (!shot)) {
+    shot_rotation += turn_speed;
+  }
+
+  // Make the rotation wrap around
+  if (shot_rotation > 360) {
+    shot_rotation -= 360;
+  }
+  if (shot_rotation < 0) {
+    shot_rotation += 360;
+  }
+
+  // Work out the Vector that corresponds to the rotation
+  let rot_radians = shot_rotation * Math.PI / 180,
+      x = Math.sin(rot_radians),
+      y = -Math.cos(rot_radians);
+
+  // Inside update
+  // Shoot the ball with the space bar
+  if (keyboard[keys.SPACE] && (!shot)) {
+    shot = true;
+    cue_ball.movement = [x * ball_speed, y * ball_speed];
+  }
+
+  if (!shot) {
+    let current_x = cue_ball.actor.posx,
+        current_y = cue_ball.actor.posy,
+        length = 0,
+        hit = false;
+    line = [];
+    while (length < max_line_length) {
+      hit = false;
+      if ((current_y < playArea.top) || (current_y > playArea.bottom)) {
+        y = -y;
+        hit = true;
+      }
+      if ((current_x < playArea.left) || (current_x > playArea.right)) {
+        x = -x;
+        hit = true;
+      }
+      if (hit) {
+        line.push([current_x - (x * line_gap), current_y - (y * line_gap)]);
+      }
+      length += Math.sqrt(Math.pow(x * line_gap, 2) + Math.pow(y * line_gap, 2));
+      current_x += x * line_gap;
+      current_y += y * line_gap;
+    }
+    line.push([current_x - (x * line_gap), current_y - (y * line_gap)]);
+  }
+  // Shoot the ball and move all the balls on the table
+  else {
+    shot = false;
+    let balls_pocketed = [],
+        collisions = [];
+    for (let b of balls) {
+      // Move each ball
+      b.move();
+      console.log(b.movement);
+      if ((Math.abs(b.movement[0]) + Math.abs(b.movement[1])) > 0) {
+        shot = true;
+      }
+      // Check for collisions
+      for (let other of balls) {
+        if ((other !== b) && b.actor.colliderect(other.actor)) {
+          collisions.push([b, other]);
+        }
+      }
+      // Did it sink in the hole?
+      let in_pocket = b.collidepockets();
+      if ((in_pocket.length > 0) && (!b.pocketed)) {
+        if (b !== cue_ball) {
+          b.movement[0] = (pockets[in_pocket[0]].posx - b.actor.posx) / 20;
+          b.movement[1] = (pockets[in_pocket[0]].posy - b.actor.posy) / 20;
+          b.pocketed = true;
+          balls_pocketed.push(b);
+        }
+        else {
+          b.posx = Math.floor(WIDTH / 2);
+          b.posy = Math.floor(HEIGHT / 2);
+        }
+      }
+    }
+    for (let col of collisions) {
+      col[0].collide(col[1]);
+    }
+    if (!shot) {
+      for (let b of balls_pocketed) {
+        balls.splice(balls.indexOf(b), 1);
+      }
+    }
+  }
+}
+
+function draw() {
+  screen.blit('table', [0, 0]);
+  playArea.draw();
+  if (!shot) {
+    screen.draw.line(cue_ball.actor.pos, line[0], [255, 255, 255]);
+    for (let l = 0; l < (line.length - 1); l++) {
+      screen.draw.line(line[l], line[l+1], [255, 255, 255]);
+    }
+  }
+  for (let ball of balls) {
+    if (!ball.pocketed) {
+      ball.actor.draw();
+    }
+  }
+}
+
+window.addEventListener('load', (event) => {
+  images.LOAD('#imageLoader img');
+  reset();
+  screen.set_mode('#screen', '#reset', '#pause');
+});
+</script>
+</body>
+
+</html>
