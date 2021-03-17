@@ -22,12 +22,12 @@ body {
 
 <body>
 <section id="imageLoader" class="hidden">
-  <img class="hidden" src="images/ball_1.png" alt="ball_1">
-  <img class="hidden" src="images/ball_2.png" alt="ball_2">
-  <img class="hidden" src="images/cue_ball.png" alt="cue_ball">
-  <img class="hidden" src="images/playarea.png" alt="playarea">
-  <img class="hidden" src="images/pocket.png" alt="pocket">
-  <img class="hidden" src="images/table.png" alt="table">
+  <img class="hidden" src="images/ball_1.png" alt="ball_1" data-name="ball_1">
+  <img class="hidden" src="images/ball_2.png" alt="ball_2" data-name="ball_2">
+  <img class="hidden" src="images/cue_ball.png" alt="cue_ball" data-name="cue_ball">
+  <img class="hidden" src="images/playarea.png" alt="playarea" data-name="playarea">
+  <img class="hidden" src="images/pocket.png" alt="pocket" data-name="pocket">
+  <img class="hidden" src="images/table.png" alt="table" data-name="table">
 </section>
 
 <main>
@@ -339,18 +339,18 @@ function reset() {
   shot = false;
 }
 
-turn_speed = 1;
-line_gap = 1 / 12;
-max_line_length = 400;
-ball_speed = 30;
+const TURN_SPEED = 1;
+const LINE_GAP = 1 / 12;
+const MAX_LINE_LENGTH = 400;
+const BALL_SPEED = 30;
 
 function update() {
   // Rotate your aim
   if (keyboard[keys.LEFT] && (!shot)) {
-    shot_rotation -= turn_speed;
+    shot_rotation -= TURN_SPEED;
   }
   if (keyboard[keys.RIGHT] && (!shot)) {
-    shot_rotation += turn_speed;
+    shot_rotation += TURN_SPEED;
   }
 
   // Make the rotation wrap around
@@ -370,7 +370,7 @@ function update() {
   // Shoot the ball with the space bar
   if (keyboard[keys.SPACE] && (!shot)) {
     shot = true;
-    cue_ball.movement = [x * ball_speed, y * ball_speed];
+    cue_ball.movement = [x * BALL_SPEED, y * BALL_SPEED];
   }
 
   if (!shot) {
@@ -379,7 +379,7 @@ function update() {
         length = 0,
         hit = false;
     line = [];
-    while (length < max_line_length) {
+    while (length < MAX_LINE_LENGTH) {
       hit = false;
       if ((current_y < playArea.top) || (current_y > playArea.bottom)) {
         y = -y;
@@ -390,13 +390,13 @@ function update() {
         hit = true;
       }
       if (hit) {
-        line.push([current_x - (x * line_gap), current_y - (y * line_gap)]);
+        line.push([current_x - (x * LINE_GAP), current_y - (y * LINE_GAP)]);
       }
-      length += Math.sqrt(Math.pow(x * line_gap, 2) + Math.pow(y * line_gap, 2));
-      current_x += x * line_gap;
-      current_y += y * line_gap;
+      length += Math.sqrt(Math.pow(x * LINE_GAP, 2) + Math.pow(y * LINE_GAP, 2));
+      current_x += x * LINE_GAP;
+      current_y += y * LINE_GAP;
     }
-    line.push([current_x - (x * line_gap), current_y - (y * line_gap)]);
+    line.push([current_x - (x * LINE_GAP), current_y - (y * LINE_GAP)]);
   }
   // Shoot the ball and move all the balls on the table
   else {
